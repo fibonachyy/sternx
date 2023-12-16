@@ -1,0 +1,11 @@
+Postgres:
+  Host: 'localhost:5432'
+  User: 'postgres'
+  Password: 'postgres'
+  DB: 'sternx'
+  MigrationsPath: './internal/repository/migrations'
+Grpc:
+  Port: 50051
+Tls:
+  Cert: "certs/certFile.pem"
+  Key: "certs/keyFile.pem"
