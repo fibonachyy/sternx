@@ -4,6 +4,7 @@ package user;
 
 import "@googleapis/google/api/annotations.proto";
 
+
 option go_package = "./user";
 
 service UserService {
