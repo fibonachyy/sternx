@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package userpb;
+
+import "user.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/fibonachyy/sternx/userpb";
+
+message LoginUserRequest {
+    string email = 1;
+    string password = 2;
+}
+
+message LoginUserResponse {
+    User user = 1;
+    string session_id = 2;
+    string access_token = 3;
+    google.protobuf.Timestamp access_token_expires_at = 5;
+}

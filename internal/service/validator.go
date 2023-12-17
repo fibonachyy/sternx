@@ -4,10 +4,10 @@ import (
 	"errors"
 	"regexp"
 
-	"github.com/fibonachyy/sternx/internal/api/user"
+	userpb "github.com/fibonachyy/sternx/internal/api"
 )
 
-func validateUserRequest(req *user.UserRequest) error {
+func validateUserRequest(req *userpb.CreateUserRequest) error {
 	if req.Name == "" {
 		return errors.New("name cannot be empty")
 	}

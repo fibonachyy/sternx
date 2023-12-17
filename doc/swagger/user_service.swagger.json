@@ -1,8 +1,13 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "user.proto",
-    "version": "version not set"
+    "title": "user service API",
+    "version": "1.0",
+    "contact": {
+      "name": "mahdi ashouri",
+      "url": "https://github.com/fibonachyy",
+      "email": "mahdi.eng77@gmail.com"
+    }
   },
   "tags": [
     {
@@ -18,12 +23,14 @@
   "paths": {
     "/v1/users": {
       "post": {
+        "summary": "Create new user",
+        "description": "Use this API to create a new user",
         "operationId": "UserService_CreateUser",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/userUserResponse"
+              "$ref": "#/definitions/userpbUserResponse"
             }
           },
           "default": {
@@ -39,7 +46,41 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/userUserRequest"
+              "$ref": "#/definitions/userpbCreateUserRequest"
+            }
+          }
+        ],
+        "tags": [
+          "UserService"
+        ]
+      }
+    },
+    "/v1/users/login": {
+      "post": {
+        "summary": "Login user",
+        "description": "Use this API to login user and get access token",
+        "operationId": "UserService_LoginUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/userpbLoginUserResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/userpbLoginUserRequest"
             }
           }
         ],
@@ -50,12 +91,14 @@
     },
     "/v1/users/{userId}": {
       "get": {
+        "summary": "Get user by id",
+        "description": "Use this API to get user by id",
         "operationId": "UserService_GetUser",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/userUserResponse"
+              "$ref": "#/definitions/userpbUserResponse"
             }
           },
           "default": {
@@ -78,12 +121,14 @@
         ]
       },
       "delete": {
+        "summary": "Delete user",
+        "description": "Use this API to delete user",
         "operationId": "UserService_DeleteUser",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/userUserResponse"
+              "$ref": "#/definitions/userpbUpdateUserResponse"
             }
           },
           "default": {
@@ -106,12 +151,14 @@
         ]
       },
       "put": {
+        "summary": "Update user",
+        "description": "Use this API to update user",
         "operationId": "UserService_UpdateUser",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/userUserResponse"
+              "$ref": "#/definitions/userpbUserResponse"
             }
           },
           "default": {
@@ -136,6 +183,9 @@
               "type": "object",
               "properties": {
                 "name": {
+                  "type": "string"
+                },
+                "password": {
                   "type": "string"
                 },
                 "email": {
@@ -180,7 +230,7 @@
         }
       }
     },
-    "userUserRequest": {
+    "userpbCreateUserRequest": {
       "type": "object",
       "properties": {
         "name": {
@@ -188,10 +238,50 @@
         },
         "email": {
           "type": "string"
+        },
+        "password": {
+          "type": "string"
         }
       }
     },
-    "userUserResponse": {
+    "userpbLoginUserRequest": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        }
+      }
+    },
+    "userpbLoginUserResponse": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/definitions/userpbUser"
+        },
+        "sessionId": {
+          "type": "string"
+        },
+        "accessToken": {
+          "type": "string"
+        },
+        "accessTokenExpiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "userpbUpdateUserResponse": {
+      "type": "object",
+      "properties": {
+        "success": {
+          "type": "boolean"
+        }
+      }
+    },
+    "userpbUser": {
       "type": "object",
       "properties": {
         "userId": {
@@ -202,6 +292,22 @@
         },
         "email": {
           "type": "string"
+        },
+        "passwordChangedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "userpbUserResponse": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/definitions/userpbUser"
         }
       }
     }

@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package userpb;
+
+
+option go_package = "github.com/fibonachyy/sternx/userpb";
+
+message UpdateUserRequest {
+    string user_id = 1;
+    optional string name = 2;
+    optional string password = 3;
+    optional string email = 4;
+}
+message UpdateUserResponse {
+    bool success = 1;
+}

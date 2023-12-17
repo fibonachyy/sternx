@@ -3,63 +3,24 @@ package service
 import (
 	"context"
 
-	"github.com/fibonachyy/sternx/internal/api/user"
-	"google.golang.org/grpc"
+	userpb "github.com/fibonachyy/sternx/internal/api"
+	"github.com/fibonachyy/sternx/internal/repository"
 )
 
 type UserServiceServer struct {
-	user.UnimplementedUserServiceServer
-	GrpcServer *grpc.Server
+	userpb.UnimplementedUserServiceServer
+	UserRepo repository.IRepository
 }
 
-func NewUserServiceServer(grpcServer *grpc.Server) *UserServiceServer {
-
-	server := &UserServiceServer{GrpcServer: grpcServer}
-	user.RegisterUserServiceServer(grpcServer, server)
-	return server
+func NewUserServiceServer(repo repository.IRepository) *UserServiceServer {
+	return &UserServiceServer{UserRepo: repo}
 }
 
-func (s *UserServiceServer) CreateUser(ctx context.Context, req *user.UserRequest) (*user.UserResponse, error) {
-	// Implement the logic to create a user
-	// You can use your repository methods here
-	// For now, let's return a placeholder response
-	res := &user.UserResponse{
-		UserId: "123",
-		Name:   req.Name,
-		Email:  req.Email,
-	}
-	return res, nil
-}
-
-func (s *UserServiceServer) GetUser(ctx context.Context, req *user.GetUserRequest) (*user.UserResponse, error) {
+func (s *UserServiceServer) GetUser(ctx context.Context, req *userpb.GetUserRequest) (*userpb.UserResponse, error) {
 	// Implement the logic to get a user by ID
 	// You can use your repository methods here
 	// For now, let's return a placeholder response
-	return &user.UserResponse{
-		UserId: "123",
-		Name:   "John Doe",
-		Email:  "john@example.com",
-	}, nil
-}
-
-func (s *UserServiceServer) UpdateUser(ctx context.Context, req *user.UpdateUserRequest) (*user.UserResponse, error) {
-	// Implement the logic to update a user by ID
-	// You can use your repository methods here
-	// For now, let's return a placeholder response
-	return &user.UserResponse{
-		UserId: "123",
-		Name:   req.Name,
-		Email:  req.Email,
-	}, nil
-}
-
-func (s *UserServiceServer) DeleteUser(ctx context.Context, req *user.DeleteUserRequest) (*user.UserResponse, error) {
-	// Implement the logic to delete a user by ID
-	// You can use your repository methods here
-	// For now, let's return a placeholder response
-	return &user.UserResponse{
-		UserId: "123",
-		Name:   "John Doe",
-		Email:  "john@example.com",
+	return &userpb.UserResponse{
+		User: &userpb.User{UserId: "123", Name: "John", Email: "a@gmail.com"},
 	}, nil
 }

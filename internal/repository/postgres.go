@@ -5,14 +5,16 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/fibonachyy/sternx/pkg/logger"
 	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 type postgres struct {
-	conn *pgxpool.Pool
+	conn   *pgxpool.Pool
+	logger *logger.DatabaseLogger
 }
 
-func NewPostgres(host, user, password, db string) IRepository {
+func NewPostgres(host, user, password, db string, logger *logger.DatabaseLogger) IRepository {
 	dsn := url.URL{
 		Scheme: "postgres",
 		Host:   host,
@@ -24,7 +26,8 @@ func NewPostgres(host, user, password, db string) IRepository {
 		panic(err)
 	}
 	return &postgres{
-		conn: conn,
+		conn:   conn,
+		logger: logger,
 	}
 }
 

@@ -16,12 +16,14 @@ type Config struct {
 		MigrationsPath string `yaml:"MigrationsPath"`
 	} `yaml:"Postgres"`
 	Grpc struct {
-		Port string `yaml:"Port"`
+		Port       string `yaml:"Port"`
+		GetwayPort string `yaml:"GetwayPort"`
 	}
 	Tls struct {
 		Cert string `yaml:"Cert"`
 		Key  string `yaml:"Key"`
 	}
+	Environment string `yaml:"Environment"`
 }
 
 func ReadConfig(configFile string) Config {

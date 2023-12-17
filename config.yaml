@@ -6,6 +6,8 @@ Postgres:
   MigrationsPath: './internal/repository/migrations'
 Grpc:
   Port: 50051
+  GetwayPort: 8080
 Tls:
   Cert: "certs/certFile.pem"
   Key: "certs/keyFile.pem"
+Environment: "development"

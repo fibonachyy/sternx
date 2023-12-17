@@ -1,0 +1,74 @@
+syntax = "proto3";
+
+package userpb;
+
+import "google/api/annotations.proto";
+import "rpc_create_user.proto";
+import "rpc_update_user.proto";
+import "rpc_login_user.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+import "user.proto";
+option go_package = "github.com/fibonachyy/sternx/userpb";
+
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+    info: {
+        title: "user service API";
+        version: "1.0";
+        contact: {
+            name: "mahdi ashouri";
+            url: "https://github.com/fibonachyy";
+            email: "mahdi.eng77@gmail.com";
+        };
+    };
+};
+
+service UserService { 
+    rpc CreateUser(CreateUserRequest) returns (UserResponse) {
+        option (google.api.http) = {
+            post: "/v1/users"
+            body: "*"
+        };
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            description: "Use this API to create a new user";
+            summary: "Create new user";
+        };
+    }
+    rpc GetUser(GetUserRequest) returns (UserResponse) {
+        option (google.api.http) = {
+            get: "/v1/users/{user_id}"
+        };
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            description: "Use this API to get user by id";
+            summary: "Get user by id";
+        };
+    }
+    rpc UpdateUser(UpdateUserRequest) returns (UserResponse) {
+        option (google.api.http) = {
+            put: "/v1/users/{user_id}"
+            body: "*"
+        };
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            description: "Use this API to update user";
+            summary: "Update user";
+        };
+    }
+    rpc DeleteUser(DeleteUserRequest) returns (UpdateUserResponse) {
+        option (google.api.http) = {
+            delete: "/v1/users/{user_id}"
+        };
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            description: "Use this API to delete user";
+            summary: "Delete user";
+        };
+    }
+    rpc LoginUser (LoginUserRequest) returns (LoginUserResponse) {
+        option (google.api.http) = {
+            post: "/v1/users/login"
+            body: "*"
+        };
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            description: "Use this API to login user and get access token";
+            summary: "Login user";
+        };
+    }
+}

@@ -14,6 +14,9 @@ type IMigrateTable interface {
 	Migrate(path string) error
 }
 type IUserRepository interface {
-	FindByID(ctx context.Context, id string) (*domain.User, error)
-	Save(ctx context.Context, user *domain.User) error
+	CreateUser(ctx context.Context, params CreateUserParams) (*domain.User, error)
+	FindUserByID(ctx context.Context, userID string) (*domain.User, error)
+	PartialUpdateUser(ctx context.Context, userID string, updatedUser domain.User) (*domain.User, error)
+	DeleteUserByID(ctx context.Context, userID string) error
+	AuthenticateUser(ctx context.Context, email, password string) (*domain.User, error)
 }
