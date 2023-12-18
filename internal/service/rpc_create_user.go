@@ -6,6 +6,7 @@ import (
 
 	userpb "github.com/fibonachyy/sternx/internal/api"
 	"github.com/fibonachyy/sternx/internal/domain"
+	"github.com/fibonachyy/sternx/internal/logger"
 	"github.com/fibonachyy/sternx/internal/repository"
 	"github.com/fibonachyy/sternx/pkg/utils"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -15,14 +16,17 @@ import (
 )
 
 func (s *UserServiceServer) CreateUser(ctx context.Context, req *userpb.CreateUserRequest) (*userpb.UserResponse, error) {
+	log := logger.FromContext(ctx)
 
 	violations := validateCreateUserRequest(req)
 	if violations != nil {
+		log.Error(ctx, "Validation failed for CreateUser request", "violations", violations)
 		return nil, invalidArgumentError(violations)
 	}
 
 	hashedPassword, err := utils.HashPassword(req.GetPassword())
 	if err != nil {
+		log.Errorf(ctx, "Failed to hash password for user creation: %v", err)
 		return nil, status.Errorf(codes.Internal, "failed to hash password: %s", err)
 	}
 
@@ -35,26 +39,32 @@ func (s *UserServiceServer) CreateUser(ctx context.Context, req *userpb.CreateUs
 
 	user, err := s.UserRepo.CreateUser(ctx, userParam)
 	if err != nil {
+		log.Errorf(ctx, "Failed to create user: %v", err)
 		return nil, status.Errorf(codes.Internal, "failed to create user: %v", err)
 	}
+	log.Infof(ctx, "User created successfully: ID=%d, Email=%s, Role=%s", user.ID, utils.MaskEmail(user.Email), user.Role)
 
 	return ConvertToUserResponse(*user), nil
 }
 
 func (s *UserServiceServer) CreateAdmin(ctx context.Context, req *userpb.CreateUserRequest) (*userpb.UserResponse, error) {
+	log := logger.FromContext(ctx)
 
 	authPayload, err := s.authorizeUser(ctx, []string{domain.AdminRole})
 	if err != nil {
+		log.Errorf(ctx, "Authorization failed for CreateAdmin request: %v", err)
 		return nil, unauthenticatedError(err)
 	}
-	_ = authPayload
+
 	violations := validateCreateUserRequest(req)
 	if violations != nil {
+		log.Error(ctx, "Validation failed for CreateAdmin request", "violations", violations)
 		return nil, invalidArgumentError(violations)
 	}
 
 	hashedPassword, err := utils.HashPassword(req.GetPassword())
 	if err != nil {
+		log.Errorf(ctx, "Failed to hash password for admin user creation: %v", err)
 		return nil, status.Errorf(codes.Internal, "failed to hash password: %s", err)
 	}
 
@@ -67,11 +77,15 @@ func (s *UserServiceServer) CreateAdmin(ctx context.Context, req *userpb.CreateU
 
 	user, err := s.UserRepo.CreateUser(ctx, userParam)
 	if err != nil {
+		log.Errorf(ctx, "Failed to create admin user: %v", err)
 		return nil, status.Errorf(codes.Internal, "failed to create admin user: %v", err)
 	}
 
+	log.Infof(ctx, "Admin user created successfully: ID=%d, Email=%s, Role=%s", user.ID, utils.MaskEmail(user.Email), user.Role)
+
 	return ConvertToUserResponse(*user), nil
 }
+
 func ConvertToUserResponse(user domain.User) *userpb.UserResponse {
 	return &userpb.UserResponse{
 		User: &userpb.User{

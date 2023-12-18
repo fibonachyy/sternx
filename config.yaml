@@ -18,4 +18,4 @@ Jwt:
   # This configuration approach is acceptable for development purposes only,
   # and in production, it's advised to use secure methods like environment variables
   # or a dedicated secrets management system to protect sensitive information.
-Environment: "development"
+Environment: "produiction"

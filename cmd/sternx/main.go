@@ -12,13 +12,11 @@ import (
 
 	"github.com/fibonachyy/sternx/config"
 	userpb "github.com/fibonachyy/sternx/internal/api"
+	"github.com/fibonachyy/sternx/internal/logger"
 	"github.com/fibonachyy/sternx/internal/repository"
 	"github.com/fibonachyy/sternx/internal/service"
-	"github.com/fibonachyy/sternx/pkg/logger"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -27,32 +25,32 @@ import (
 )
 
 func main(cfg config.Config) {
-
+	var log logger.Logger
 	if cfg.Environment == "development" {
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+		log = logger.NewDevLogger()
+	} else {
+		log = logger.NewLogrus()
 	}
+
 	// Set up a signal handler to gracefully shut down the server on interrupt or termination
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
-	// Set up the database and run migrations
-	dbLogger := logger.NewDatabaseLogger()
-	ps := repository.NewPostgres(cfg.Postgres.Host, cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.DB, dbLogger)
+	ps := repository.NewPostgres(cfg.Postgres.Host, cfg.Postgres.User, cfg.Postgres.Password, cfg.Postgres.DB, log)
 	err := ps.Migrate(cfg.Postgres.MigrationsPath)
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to run database migrations:")
+		log.Fatalf(context.Background(), "Failed to run database migrations: %v", err)
 	}
 
 	creds, err := credentials.NewServerTLSFromFile(cfg.Tls.Cert, cfg.Tls.Key)
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to load TLS credentials:")
-
+		log.Fatalf(context.Background(), "Failed to load TLS credentials: %v", err)
 	}
 
 	// Set up the gRPC server
-	grpcServer, err := setupGRPCServer(cfg, creds, ps)
+	grpcServer, err := setupGRPCServer(cfg, creds, ps, log)
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to set up gRPC server:")
+		log.Fatalf(context.Background(), "Failed to set up gRPC server: %v", err)
 	}
 
 	// Start the gRPC server in a separate goroutine
@@ -60,11 +58,11 @@ func main(cfg config.Config) {
 		portStr := fmt.Sprintf(":%s", cfg.Grpc.Port)
 		listener, err := net.Listen("tcp", portStr)
 		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to listen:")
+			log.Fatalf(context.Background(), "Failed to listen: %v", err)
 		}
-		log.Info().Msgf("gRPC server is listening on %s", portStr)
+		log.Infof(context.Background(), "gRPC server is listening on %s", portStr)
 		if err := grpcServer.Serve(listener); err != nil {
-			log.Fatal().Err(err).Msg("Failed to serve gRPC")
+			log.Fatalf(context.Background(), "Failed to serve gRPC: %v", err)
 		}
 	}()
 
@@ -78,9 +76,9 @@ func main(cfg config.Config) {
 	mux.Handle(swaggerJSONPath, swaggerJSONHandler)
 
 	// Set up the gRPC gateway
-	gatewayMux, err := setupGRPCGateway(fmt.Sprintf("127.0.0.1:%s", cfg.Grpc.Port))
+	gatewayMux, err := setupGRPCGateway(fmt.Sprintf("127.0.0.1:%s", cfg.Grpc.Port), log)
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed to set up gRPC gateway:")
+		log.Fatalf(context.Background(), "Failed to set up gRPC gateway: %v", err)
 	}
 
 	// Combine the ServeMux instances
@@ -94,30 +92,32 @@ func main(cfg config.Config) {
 
 	go func() {
 		gatewayAddr := fmt.Sprintf(":%s", cfg.Grpc.GetwayPort)
-		log.Info().Msgf("gRPC gateway is listening on %s", gatewayAddr)
+		log.Infof(context.Background(), "gRPC gateway is listening on %s", gatewayAddr)
 		if err := httpServer.ListenAndServe(); err != nil {
-			log.Fatal().Err(err).Msg("Failed to serve gRPC gateway:")
+			log.Fatalf(context.Background(), "Failed to serve gRPC gateway: %v", err)
 		}
 	}()
 
 	// Wait for signals to gracefully shut down the server
 	<-stop
-	log.Info().Msg("Shutting down the server gracefully...")
+	log.Info(context.Background(), "Shutting down the server gracefully...")
 
 	// Gracefully stop the gRPC server
 	grpcServer.GracefulStop()
+
 	// Gracefully stop the HTTP server
 	if err := httpServer.Shutdown(context.Background()); err != nil {
-		log.Fatal().Err(err).Msg("Failed to shut down HTTP server gracefully:")
+		log.Fatalf(context.Background(), "Failed to shut down HTTP server gracefully: %v", err)
 	}
-	log.Info().Msg("Server gracefully stopped")
+
+	log.Info(context.Background(), "Server gracefully stopped")
 }
 
-func setupGRPCServer(cfg config.Config, creds credentials.TransportCredentials, ps repository.IRepository) (*grpc.Server, error) {
-	log.Info().Msg("Setting up gRPC server...")
+func setupGRPCServer(cfg config.Config, creds credentials.TransportCredentials, ps repository.IRepository, log logger.Logger) (*grpc.Server, error) {
+	log.Info(context.Background(), "Setting up gRPC server...")
 
 	opts := []grpc.ServerOption{
-		grpc.UnaryInterceptor(service.UnaryInterceptor),
+		grpc.UnaryInterceptor(service.UnaryInterceptor(log)),
 		// grpc.Creds(creds),
 		// Note: TLS (Transport Layer Security) is currently disabled for the service to facilitate development purposes.
 		// Enabling TLS requires valid certificate files. Without them, testing the application becomes restricted.
@@ -136,7 +136,7 @@ func setupGRPCServer(cfg config.Config, creds credentials.TransportCredentials, 
 	return grpcServer, nil
 }
 
-func setupGRPCGateway(serverAddr string) (*runtime.ServeMux, error) {
+func setupGRPCGateway(serverAddr string, log logger.Logger) (*runtime.ServeMux, error) {
 	mux := runtime.NewServeMux()
 	conn, err := grpc.Dial(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
@@ -149,7 +149,6 @@ func setupGRPCGateway(serverAddr string) (*runtime.ServeMux, error) {
 
 	return mux, nil
 }
-
 func Register(root *cobra.Command) {
 	root.PersistentFlags().String("config", "config.yaml", "read config file")
 	root.AddCommand(

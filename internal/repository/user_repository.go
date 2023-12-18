@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fibonachyy/sternx/internal/domain"
+	"github.com/fibonachyy/sternx/internal/logger"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -42,16 +43,16 @@ type CreateUserParams struct {
 }
 
 func (p *postgres) CreateUser(ctx context.Context, params CreateUserParams) (*domain.User, error) {
+	logFromCtx := logger.FromContext(ctx)
 	createdAt := time.Now()
 	passwordChangedAt := time.Now()
 
-	// Insert query
 	insertQuery := "INSERT INTO users (name, email, role, hashed_password, password_changed_at, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id"
 	var userID int
 	err := p.conn.QueryRow(ctx, insertQuery, params.Name, params.Email, params.Role, params.HashedPassword, passwordChangedAt, createdAt).Scan(&userID)
 	if err != nil {
-		p.logger.LogError(ctx, err, "failed to insert user into database", "email", params.Email)
-		return nil, fmt.Errorf("failed to insert user into database")
+		logFromCtx.Errorf(ctx, "failed to insert user into database: %v", err)
+		return nil, fmt.Errorf("failed to insert user into database: %w", err)
 	}
 
 	user := &domain.User{
@@ -64,27 +65,13 @@ func (p *postgres) CreateUser(ctx context.Context, params CreateUserParams) (*do
 		CreatedAt:         createdAt,
 	}
 
-	p.logger.LogInfo(ctx, "user created successfully: ID=%d, Email=%s, Role=%s", user.ID, user.Email, user.Role)
+	logFromCtx.Infof(ctx, "user created successfully: ID=%d, Email=%s, Role=%s", user.ID, user.Email, user.Role)
 
 	return user, nil
 }
-func (p *postgres) FindUserByID(ctx context.Context, userID string) (*domain.User, error) {
-	query := "SELECT id, name, email, role, hashed_password, password_changed_at, created_at FROM users WHERE id = $1"
-	var user userModel
 
-	err := p.conn.QueryRow(ctx, query, userID).Scan(&user.id, &user.name, &user.email, &user.role, &user.hashedPassword, &user.passwordChangedAt, &user.createdAt)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			// Return a specific error when the user is not found
-			return nil, fmt.Errorf("user with ID %s not found: %w", userID, err)
-		}
-		// Handle other database errors
-		return nil, fmt.Errorf("failed to find user by ID: %w", err)
-	}
-
-	return user.ToDomain(), nil
-}
 func (p *postgres) GetUserByEmail(ctx context.Context, userEmail string) (*domain.User, error) {
+	logFromCtx := logger.FromContext(ctx)
 	query := "SELECT id, name, email, role, hashed_password, password_changed_at, created_at FROM users WHERE email = $1"
 	var user userModel
 
@@ -92,18 +79,18 @@ func (p *postgres) GetUserByEmail(ctx context.Context, userEmail string) (*domai
 		&user.id, &user.name, &user.email, &user.role, &user.hashedPassword, &user.passwordChangedAt, &user.createdAt,
 	)
 	if err != nil {
-
 		if errors.Is(err, sql.ErrNoRows) {
-			// Return a specific error when the user is not found
-			return nil, fmt.Errorf("user not found with the provided email")
+			logFromCtx.Errorf(ctx, "user not found with the provided email: %v", err)
+			return nil, fmt.Errorf("user not found with the provided email: %w", err)
 		}
-		p.logger.LogError(ctx, err, "failed to find user by email: %s", userEmail)
+		logFromCtx.Errorf(ctx, "failed to find user by email: %v", err)
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
 	return user.ToDomain(), nil
 }
 
 func (p *postgres) GetUserByID(ctx context.Context, userID int) (*domain.User, error) {
+	logFromCtx := logger.FromContext(ctx)
 	query := "SELECT id, name, email, role, hashed_password, password_changed_at, created_at FROM users WHERE id = $1"
 	var user userModel
 
@@ -112,17 +99,17 @@ func (p *postgres) GetUserByID(ctx context.Context, userID int) (*domain.User, e
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			// Return a specific error when the user is not found
-			return nil, fmt.Errorf("user not found with the provided ID")
+			logFromCtx.Errorf(ctx, "user not found with the provided ID: %v", err)
+			return nil, fmt.Errorf("user not found with the provided ID: %w", err)
 		}
-		p.logger.LogError(ctx, err, "failed to find user by ID: %d", userID)
-		return nil, fmt.Errorf("failed to find user by ID: %w", err)
+		logFromCtx.Errorf(ctx, "failed to find user by id: %v", err)
+		return nil, fmt.Errorf("user not found: %w", err)
 	}
-
 	return user.ToDomain(), nil
 }
 
 func (p *postgres) PartialUpdateUserByEmail(ctx context.Context, email string, updatedUser domain.User) (*domain.User, error) {
+	logFromCtx := logger.FromContext(ctx)
 	updatedUser.Email = ""
 	updatedUser.Role = ""
 	updatedUser.PasswordChangedAt = time.Time{}
@@ -136,7 +123,7 @@ func (p *postgres) PartialUpdateUserByEmail(ctx context.Context, email string, u
 	var newHashedPassword, userEmail, role string
 	err := p.conn.QueryRow(ctx, query, updatedUser.Name, email).Scan(&newUserID, &newPasswordChangedAt, &newCreatedAt, &newHashedPassword, &userEmail, &role)
 	if err != nil {
-		p.logger.LogError(ctx, err, "failed to update user info by email: %s", email)
+		logFromCtx.Errorf(ctx, "failed to update user info by email: %s: %v", email, err)
 		return nil, fmt.Errorf("failed to partially update user by Email %s: %w", email, err)
 	}
 
@@ -147,45 +134,48 @@ func (p *postgres) PartialUpdateUserByEmail(ctx context.Context, email string, u
 	updatedUser.Role = role
 	return &updatedUser, nil
 }
-
 func (p *postgres) DeleteUserByEmail(ctx context.Context, email string) error {
+
+	logFromCtx := logger.FromContext(ctx)
 	query := "DELETE FROM users WHERE email = $1"
 
 	result, err := p.conn.Exec(ctx, query, email)
 	if err != nil {
-		p.logger.LogError(ctx, err, "failed to delete user by email: %s: %w", email, err)
-		return fmt.Errorf("failed to delete user by Email %s ", email)
+		logFromCtx.Errorf(ctx, "failed to delete user by email: %s: %v", email, err)
+		return fmt.Errorf("failed to delete user by Email %s: %w", email, err)
 	}
 
 	rowsAffected := result.RowsAffected()
 	if rowsAffected == 0 {
-		// Return a specific error when no rows were affected (user not found)
+		logFromCtx.Errorf(ctx, "user with Email %s not found: %v", email, sql.ErrNoRows)
 		return fmt.Errorf("user with Email %s not found: %w", email, sql.ErrNoRows)
 	}
 
 	return nil
 }
+
 func (p *postgres) AuthenticateUser(ctx context.Context, email, password string) (*domain.User, error) {
+	logFromCtx := logger.FromContext(ctx)
 	query := "SELECT id, name, email, role, hashed_password, password_changed_at, created_at FROM users WHERE email = $1"
 	var user userModel
 
 	err := p.conn.QueryRow(ctx, query, email).Scan(&user.id, &user.name, &user.email, &user.role, &user.hashedPassword, &user.passwordChangedAt, &user.createdAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			// Return a specific error when the user is not found
+			logFromCtx.Errorf(ctx, "user with email %s not found: %v", email, err)
 			return nil, fmt.Errorf("user with email %s not found: %w", email, err)
 		}
-		// Handle other database errors
+		logFromCtx.Errorf(ctx, "failed to retrieve user by email: %v", err)
 		return nil, fmt.Errorf("failed to retrieve user by email: %w", err)
 	}
 
-	// Compare hashed passwords
 	err = bcrypt.CompareHashAndPassword([]byte(user.hashedPassword), []byte(password))
 	if err != nil {
-		// Passwords do not match
+		logFromCtx.Errorf(ctx, "authentication failed: %v", err)
 		return nil, fmt.Errorf("authentication failed: %w", err)
 	}
 
-	// Passwords match, user is authenticated
+	logFromCtx.Infof(ctx, "user authenticated successfully: ID=%d, Email=%s, Role=%s", user.id, user.email, user.role)
+
 	return user.ToDomain(), nil
 }

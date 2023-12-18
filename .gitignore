@@ -86,3 +86,4 @@ release/
 dist/
 vendor/
 certs/
+logs/

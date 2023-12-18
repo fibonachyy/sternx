@@ -5,6 +5,7 @@ import (
 
 	userpb "github.com/fibonachyy/sternx/internal/api"
 	"github.com/fibonachyy/sternx/internal/domain"
+	"github.com/fibonachyy/sternx/internal/logger"
 	"github.com/fibonachyy/sternx/pkg/utils"
 
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -14,18 +15,23 @@ import (
 )
 
 func (server *UserServiceServer) LoginUser(ctx context.Context, req *userpb.LoginUserRequest) (*userpb.LoginUserResponse, error) {
+	log := logger.FromContext(ctx)
+
 	violations := validateLoginUserRequest(req)
 	if violations != nil {
+		log.Error(ctx, "Validation failed for LoginUser request", "violations", violations)
 		return nil, invalidArgumentError(violations)
 	}
 
 	user, err := server.UserRepo.GetUserByEmail(ctx, req.GetEmail())
 	if err != nil {
+		log.Errorf(ctx, "Failed to find user by email: %s, error: %v", utils.MaskEmail(req.GetEmail()), err)
 		return nil, status.Errorf(codes.Internal, "failed to find user")
 	}
 
 	err = utils.CheckPassword(req.Password, user.HashedPassword)
 	if err != nil {
+		log.Errorf(ctx, "Incorrect password for user: %s", utils.MaskEmail(user.Email))
 		return nil, status.Errorf(codes.NotFound, "incorrect password")
 	}
 
@@ -35,6 +41,7 @@ func (server *UserServiceServer) LoginUser(ctx context.Context, req *userpb.Logi
 		server.Config.JWTDuration,
 	)
 	if err != nil {
+		log.Errorf(ctx, "Failed to create access token for user: %s, error: %v", utils.MaskEmail(user.Email), err)
 		return nil, status.Errorf(codes.Internal, "failed to create access token")
 	}
 
@@ -43,6 +50,9 @@ func (server *UserServiceServer) LoginUser(ctx context.Context, req *userpb.Logi
 		AccessToken:          accessToken,
 		AccessTokenExpiresAt: timestamppb.New(accessPayload.ExpiredAt),
 	}
+
+	log.Infof(ctx, "User login successful: ID=%d, Email=%s, Role=%s", user.ID, utils.MaskEmail(user.Email), user.Role)
+
 	return rsp, nil
 }
 

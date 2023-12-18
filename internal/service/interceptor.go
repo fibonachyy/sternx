@@ -2,26 +2,37 @@ package service
 
 import (
 	"context"
+	"time"
 
-	// userpb "github.com/fibonachyy/sternx/internal/api"
-
-	"github.com/fibonachyy/sternx/pkg/logger"
+	"github.com/fibonachyy/sternx/internal/logger"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
-func UnaryInterceptor(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+func UnaryInterceptor(myLogger logger.Logger) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		// Set the logger in the context
+		ctx = logger.WithLogger(ctx, myLogger)
 
-	// Perform JWT authentication before calling the actual gRPC method
-	// if err := authenticate(ctx); err != nil {
-	// 	return nil, err
-	// }
+		startTime := time.Now()
 
-	// Perform data validation before calling the actual gRPC method
-	// if req, ok := req.(*userpb.UserRequest); ok {
-	// 	if err := validateUserRequest(req); err != nil {
-	// 		return nil, err
-	// 	}
-	// }
+		// Perform pre-handler operations or logging if needed
+		myLogger.Info(ctx, "Received gRPC request")
 
-	return logger.GrpcLogger(ctx, req, info, handler)
+		// Invoke the next middleware or handler
+		resp, err := handler(ctx, req)
+
+		duration := time.Since(startTime)
+
+		statusCode := codes.Unknown
+		if st, ok := status.FromError(err); ok {
+			statusCode = st.Code()
+		}
+
+		// Log information about the completed gRPC request
+		myLogger.Info(ctx, "Completed gRPC request", "method", info.FullMethod, "statusCode", statusCode.String(), "duration", duration)
+
+		return resp, err
+	}
 }
