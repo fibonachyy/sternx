@@ -85,5 +85,4 @@ bin/
 release/
 dist/
 vendor/
-certs/certFile.pem
-certs/keyFile.pem
+certs/

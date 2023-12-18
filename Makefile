@@ -21,5 +21,5 @@ generate-proto:
         proto/*.proto
 # Default target, installs submodules and generates certificates and code
 .PHONY: all
-all: install-submodules generate-certs generate-user generate-user-gateway
+all: generate-certs generate-proto
 
