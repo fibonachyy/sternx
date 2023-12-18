@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/fibonachyy/sternx/domain"
+	"github.com/fibonachyy/sternx/internal/domain"
 )
 
 type IRepository interface {
@@ -15,8 +15,10 @@ type IMigrateTable interface {
 }
 type IUserRepository interface {
 	CreateUser(ctx context.Context, params CreateUserParams) (*domain.User, error)
+	GetUserByEmail(ctx context.Context, userEmail string) (*domain.User, error)
+	GetUserByID(ctx context.Context, userID int) (*domain.User, error)
 	FindUserByID(ctx context.Context, userID string) (*domain.User, error)
-	PartialUpdateUser(ctx context.Context, userID string, updatedUser domain.User) (*domain.User, error)
-	DeleteUserByID(ctx context.Context, userID string) error
+	PartialUpdateUserByEmail(ctx context.Context, email string, updatedUser domain.User) (*domain.User, error)
+	DeleteUserByEmail(ctx context.Context, email string) error
 	AuthenticateUser(ctx context.Context, email, password string) (*domain.User, error)
 }

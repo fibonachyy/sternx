@@ -2,11 +2,12 @@ syntax = "proto3";
 
 package userpb;
 
-
+import "user.proto";
 option go_package = "github.com/fibonachyy/sternx/userpb";
 
 message CreateUserRequest {
     string name = 1;
     string email = 2;
     string password = 3;
+    Role role = 4;
 }

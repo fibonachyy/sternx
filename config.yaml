@@ -10,4 +10,12 @@ Grpc:
 Tls:
   Cert: "certs/certFile.pem"
   Key: "certs/keyFile.pem"
+Jwt:
+  ExpireMin: 30
+  TokenSymmetricKey:  LS7xy5OEXom1zbKyNuDnz1M2y2Katw2M 
+  # Note: Storing sensitive data, such as TokenSymmetricKey, directly in this configuration file
+  # within the project root is not a recommended practice for production environments.
+  # This configuration approach is acceptable for development purposes only,
+  # and in production, it's advised to use secure methods like environment variables
+  # or a dedicated secrets management system to protect sensitive information.
 Environment: "development"

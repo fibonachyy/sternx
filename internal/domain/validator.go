@@ -1,9 +1,10 @@
-package validator
+package domain
 
 import (
 	"fmt"
 	"net/mail"
 	"regexp"
+	"strconv"
 )
 
 var isValidName = regexp.MustCompile(`^[a-zA-Z\s]+$`).MatchString
@@ -37,4 +38,19 @@ func ValidateEmail(value string) error {
 }
 func ValidatePassword(value string) error {
 	return ValidateString(value, 6, 100)
+}
+func ValidateUserIdString(userId string) error {
+	id, err := strconv.Atoi(userId)
+	if err != nil {
+		return fmt.Errorf("user ID must be a valid integer")
+	}
+
+	// Assuming a valid user ID range, adjust as needed
+	if id <= 0 {
+		return fmt.Errorf("user ID must be a positive integer")
+	}
+
+	// Additional string-specific checks if needed
+
+	return nil
 }

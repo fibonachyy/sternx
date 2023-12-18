@@ -23,6 +23,10 @@ type Config struct {
 		Cert string `yaml:"Cert"`
 		Key  string `yaml:"Key"`
 	}
+	Jwt struct {
+		ExpireMin         int    `yaml:"ExpireMin"`
+		TokenSymmetricKey string `yaml:"TokenSymmetricKey"`
+	}
 	Environment string `yaml:"Environment"`
 }
 

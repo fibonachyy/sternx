@@ -33,6 +33,16 @@ service UserService {
             summary: "Create new user";
         };
     }
+    rpc CreateAdmin(CreateUserRequest) returns (UserResponse) {
+        option (google.api.http) = {
+            post: "/v1/admin"
+            body: "*"
+        };
+        option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
+            description: "Use this API to create a new admin and just admin can call this API";
+            summary: "Create new admin";
+        };
+    }
     rpc GetUser(GetUserRequest) returns (UserResponse) {
         option (google.api.http) = {
             get: "/v1/users/{user_id}"
@@ -44,7 +54,7 @@ service UserService {
     }
     rpc UpdateUser(UpdateUserRequest) returns (UserResponse) {
         option (google.api.http) = {
-            put: "/v1/users/{user_id}"
+            put: "/v1/users"
             body: "*"
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
@@ -54,7 +64,7 @@ service UserService {
     }
     rpc DeleteUser(DeleteUserRequest) returns (UpdateUserResponse) {
         option (google.api.http) = {
-            delete: "/v1/users/{user_id}"
+            delete: "/v1/users/{email}"
         };
         option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {
             description: "Use this API to delete user";

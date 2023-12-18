@@ -21,6 +21,40 @@
     "application/json"
   ],
   "paths": {
+    "/v1/admin": {
+      "post": {
+        "summary": "Create new admin",
+        "description": "Use this API to create a new admin and just admin can call this API",
+        "operationId": "UserService_CreateAdmin",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/userpbUserResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/userpbCreateUserRequest"
+            }
+          }
+        ],
+        "tags": [
+          "UserService"
+        ]
+      }
+    },
     "/v1/users": {
       "post": {
         "summary": "Create new user",
@@ -47,6 +81,38 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/userpbCreateUserRequest"
+            }
+          }
+        ],
+        "tags": [
+          "UserService"
+        ]
+      },
+      "put": {
+        "summary": "Update user",
+        "description": "Use this API to update user",
+        "operationId": "UserService_UpdateUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/userpbUserResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/userpbUpdateUserRequest"
             }
           }
         ],
@@ -89,6 +155,38 @@
         ]
       }
     },
+    "/v1/users/{email}": {
+      "delete": {
+        "summary": "Delete user",
+        "description": "Use this API to delete user",
+        "operationId": "UserService_DeleteUser",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/userpbUpdateUserResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "email",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "UserService"
+        ]
+      }
+    },
     "/v1/users/{userId}": {
       "get": {
         "summary": "Get user by id",
@@ -114,85 +212,6 @@
             "in": "path",
             "required": true,
             "type": "string"
-          }
-        ],
-        "tags": [
-          "UserService"
-        ]
-      },
-      "delete": {
-        "summary": "Delete user",
-        "description": "Use this API to delete user",
-        "operationId": "UserService_DeleteUser",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/userpbUpdateUserResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "UserService"
-        ]
-      },
-      "put": {
-        "summary": "Update user",
-        "description": "Use this API to update user",
-        "operationId": "UserService_UpdateUser",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/userpbUserResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "type": "object",
-              "properties": {
-                "name": {
-                  "type": "string"
-                },
-                "password": {
-                  "type": "string"
-                },
-                "email": {
-                  "type": "string"
-                }
-              }
-            }
           }
         ],
         "tags": [
@@ -241,6 +260,9 @@
         },
         "password": {
           "type": "string"
+        },
+        "role": {
+          "$ref": "#/definitions/userpbRole"
         }
       }
     },
@@ -261,15 +283,37 @@
         "user": {
           "$ref": "#/definitions/userpbUser"
         },
-        "sessionId": {
-          "type": "string"
-        },
         "accessToken": {
           "type": "string"
         },
         "accessTokenExpiresAt": {
           "type": "string",
           "format": "date-time"
+        }
+      }
+    },
+    "userpbRole": {
+      "type": "string",
+      "enum": [
+        "STANDARD",
+        "ADMIN"
+      ],
+      "default": "STANDARD"
+    },
+    "userpbUpdateUserRequest": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
         }
       }
     },
@@ -300,6 +344,9 @@
         "createdAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "role": {
+          "$ref": "#/definitions/userpbRole"
         }
       }
     },

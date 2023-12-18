@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/fibonachyy/sternx/config"
 	userpb "github.com/fibonachyy/sternx/internal/api"
@@ -49,7 +50,7 @@ func main(cfg config.Config) {
 	}
 
 	// Set up the gRPC server
-	grpcServer, err := setupGRPCServer(creds, ps)
+	grpcServer, err := setupGRPCServer(cfg, creds, ps)
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to set up gRPC server:")
 	}
@@ -67,33 +68,24 @@ func main(cfg config.Config) {
 		}
 	}()
 
-	gatewayMux, err := setupGRPCGateway(fmt.Sprintf("localhost:%s", cfg.Grpc.GetwayPort), creds)
+	mux := http.NewServeMux()
+
+	// Serve Swagger JSON definition for testing the gRPC gateway. This endpoint is also compatible
+	// with Swagger UI extensions, providing a better user experience.
+	// Access the Swagger JSON file at: http://serveradd:getWayport/swagger/
+	const swaggerJSONPath = "/swagger/"
+	swaggerJSONHandler := http.StripPrefix(swaggerJSONPath, http.FileServer(http.Dir("doc/swagger")))
+	mux.Handle(swaggerJSONPath, swaggerJSONHandler)
+
+	// Set up the gRPC gateway
+	gatewayMux, err := setupGRPCGateway(fmt.Sprintf("127.0.0.1:%s", cfg.Grpc.Port))
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to set up gRPC gateway:")
 	}
 
-	// Create a ServeMux for custom routing
-	mux := http.NewServeMux()
+	// Combine the ServeMux instances
+	mux.Handle("/", gatewayMux)
 
-	const (
-		grpcGatewayPath = "/"
-		swaggerUIPath   = "/swagger/"
-		swaggerJSONPath = "/doc/swagger/"
-		swaggerBaseURL  = "https://raw.githubusercontent.com/swagger-api/swagger-ui/master/dist/"
-	)
-
-	// ...
-
-	// Register gRPC gateway handler
-	mux.Handle(grpcGatewayPath, gatewayMux)
-
-	// Serve Swagger UI from /swagger/
-	swaggerHandler := http.StripPrefix(swaggerUIPath, http.FileServer(http.Dir("doc/swagger")))
-	mux.Handle(swaggerUIPath, swaggerHandler)
-
-	// Serve Swagger definition from /doc/swagger/user_service.swagger.json
-	swaggerJSONHandler := http.StripPrefix(swaggerJSONPath, http.FileServer(http.Dir("doc/swagger")))
-	mux.Handle(swaggerJSONPath, swaggerJSONHandler)
 	// Set up the HTTP server
 	httpServer := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.Grpc.GetwayPort),
@@ -121,7 +113,7 @@ func main(cfg config.Config) {
 	log.Info().Msg("Server gracefully stopped")
 }
 
-func setupGRPCServer(creds credentials.TransportCredentials, ps repository.IRepository) (*grpc.Server, error) {
+func setupGRPCServer(cfg config.Config, creds credentials.TransportCredentials, ps repository.IRepository) (*grpc.Server, error) {
 	log.Info().Msg("Setting up gRPC server...")
 
 	opts := []grpc.ServerOption{
@@ -135,22 +127,24 @@ func setupGRPCServer(creds credentials.TransportCredentials, ps repository.IRepo
 	reflection.Register(grpcServer)
 
 	// Register your gRPC service implementation
-	userpb.RegisterUserServiceServer(grpcServer, service.NewUserServiceServer(ps))
+	conf := service.Config{JWTDuration: time.Minute * time.Duration(cfg.Jwt.ExpireMin), TokenSymmetricKey: cfg.Jwt.TokenSymmetricKey}
+	userServiceServer, err := service.NewUserServiceServer(ps, conf)
+	if err != nil {
+		return nil, err
+	}
+	userpb.RegisterUserServiceServer(grpcServer, userServiceServer)
 	return grpcServer, nil
 }
 
-func setupGRPCGateway(serverAddr string, creds credentials.TransportCredentials) (*runtime.ServeMux, error) {
+func setupGRPCGateway(serverAddr string) (*runtime.ServeMux, error) {
 	mux := runtime.NewServeMux()
-	fmt.Println(serverAddr)
 	conn, err := grpc.Dial(serverAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial gRPC server")
+		return nil, fmt.Errorf("failed to dial gRPC server: %v", err)
 	}
-	defer conn.Close()
-
 	err = userpb.RegisterUserServiceHandler(context.Background(), mux, conn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to register gRPC gateway")
+		return nil, fmt.Errorf("failed to register gRPC gateway: %v", err)
 	}
 
 	return mux, nil
