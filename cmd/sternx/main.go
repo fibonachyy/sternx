@@ -13,8 +13,11 @@ import (
 	"github.com/fibonachyy/sternx/config"
 	userpb "github.com/fibonachyy/sternx/internal/api"
 	"github.com/fibonachyy/sternx/internal/logger"
+	"github.com/fibonachyy/sternx/internal/metrics"
 	"github.com/fibonachyy/sternx/internal/repository"
 	"github.com/fibonachyy/sternx/internal/service"
+	"github.com/fibonachyy/sternx/internal/tracing"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spf13/cobra"
@@ -42,13 +45,22 @@ func main(cfg config.Config) {
 		log.Fatalf(context.Background(), "Failed to run database migrations: %v", err)
 	}
 
+	cleanup := tracing.InitTracer(log, cfg.Trace.Host, cfg.Trace.ServiceName)
+	defer cleanup(context.Background())
+
+	provider := metrics.InitMeter(log, cfg.Metric.Host, cfg.Metric.ServiceName)
+	defer provider.Shutdown(context.Background())
+
+	meter := provider.Meter("sternx-golang-app")
+	metrics.GenerateMetrics(context.Background(), meter, log)
+
 	creds, err := credentials.NewServerTLSFromFile(cfg.Tls.Cert, cfg.Tls.Key)
 	if err != nil {
 		log.Fatalf(context.Background(), "Failed to load TLS credentials: %v", err)
 	}
 
 	// Set up the gRPC server
-	grpcServer, err := setupGRPCServer(cfg, creds, ps, log)
+	grpcServer, err := setupGRPCServer(cfg, creds, ps, log, meter)
 	if err != nil {
 		log.Fatalf(context.Background(), "Failed to set up gRPC server: %v", err)
 	}
@@ -113,11 +125,11 @@ func main(cfg config.Config) {
 	log.Info(context.Background(), "Server gracefully stopped")
 }
 
-func setupGRPCServer(cfg config.Config, creds credentials.TransportCredentials, ps repository.IRepository, log logger.Logger) (*grpc.Server, error) {
+func setupGRPCServer(cfg config.Config, creds credentials.TransportCredentials, ps repository.IRepository, log logger.Logger, meter metric.Meter) (*grpc.Server, error) {
 	log.Info(context.Background(), "Setting up gRPC server...")
 
 	opts := []grpc.ServerOption{
-		grpc.UnaryInterceptor(service.UnaryInterceptor(log)),
+		grpc.UnaryInterceptor(service.UnaryInterceptor(log, meter)),
 		// grpc.Creds(creds),
 		// Note: TLS (Transport Layer Security) is currently disabled for the service to facilitate development purposes.
 		// Enabling TLS requires valid certificate files. Without them, testing the application becomes restricted.
@@ -149,6 +161,7 @@ func setupGRPCGateway(serverAddr string, log logger.Logger) (*runtime.ServeMux, 
 
 	return mux, nil
 }
+
 func Register(root *cobra.Command) {
 	root.PersistentFlags().String("config", "config.yaml", "read config file")
 	root.AddCommand(

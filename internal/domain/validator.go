@@ -5,6 +5,9 @@ import (
 	"net/mail"
 	"regexp"
 	"strconv"
+
+	"go.opentelemetry.io/otel/attribute"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
 )
 
 var isValidName = regexp.MustCompile(`^[a-zA-Z\s]+$`).MatchString
@@ -53,4 +56,19 @@ func ValidateUserIdString(userId string) error {
 	// Additional string-specific checks if needed
 
 	return nil
+}
+
+func ConvertFieldViolationsToAttributes(fieldViolations []*errdetails.BadRequest_FieldViolation) []attribute.KeyValue {
+	var attrs []attribute.KeyValue
+
+	for _, fieldViolation := range fieldViolations {
+		// Flatten the field violation into attributes
+		attrs = append(attrs,
+			attribute.String("field_violation.field", fieldViolation.Field),
+			attribute.String("field_violation.description", fieldViolation.Description),
+			// Add more attributes as needed
+		)
+	}
+
+	return attrs
 }

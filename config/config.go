@@ -27,6 +27,14 @@ type Config struct {
 		ExpireMin         int    `yaml:"ExpireMin"`
 		TokenSymmetricKey string `yaml:"TokenSymmetricKey"`
 	}
+	Metric struct {
+		Host        string `yaml:"Host"`
+		ServiceName string `yaml:"ServiceName"`
+	}
+	Trace struct {
+		Host        string `yaml:"Host"`
+		ServiceName string `yaml:"ServiceName"`
+	}
 	Environment string `yaml:"Environment"`
 }
 

@@ -18,4 +18,11 @@ Jwt:
   # This configuration approach is acceptable for development purposes only,
   # and in production, it's advised to use secure methods like environment variables
   # or a dedicated secrets management system to protect sensitive information.
-Environment: "produiction"
+Environment: "production"
+Metric:	
+  Host: "localhost:55680"
+  ServiceName: "sternx_metrics"
+Trace:
+  Host: "localhost:4317"
+  ServiceName: "sternx_trace"
+  

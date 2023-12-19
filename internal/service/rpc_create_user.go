@@ -7,8 +7,12 @@ import (
 	userpb "github.com/fibonachyy/sternx/internal/api"
 	"github.com/fibonachyy/sternx/internal/domain"
 	"github.com/fibonachyy/sternx/internal/logger"
+	"github.com/fibonachyy/sternx/internal/metrics"
 	"github.com/fibonachyy/sternx/internal/repository"
 	"github.com/fibonachyy/sternx/pkg/utils"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -17,16 +21,30 @@ import (
 
 func (s *UserServiceServer) CreateUser(ctx context.Context, req *userpb.CreateUserRequest) (*userpb.UserResponse, error) {
 	log := logger.FromContext(ctx)
+	meter := metrics.FromContext(ctx)
+
+	tracer := otel.Tracer("grpc-server")
+	ctx, span := tracer.Start(ctx, "UserService/CreateUser") // Use a standardized name
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("service.method.name", "CreateUser"),
+		attribute.String("user.email", req.GetEmail()),
+		attribute.String("user.role", req.GetRole().String()),
+	)
+	ctx = trace.ContextWithSpan(ctx, span)
 
 	violations := validateCreateUserRequest(req)
 	if violations != nil {
 		log.Error(ctx, "Validation failed for CreateUser request", "violations", violations)
+		span.SetAttributes(domain.ConvertFieldViolationsToAttributes(violations)...)
 		return nil, invalidArgumentError(violations)
 	}
 
 	hashedPassword, err := utils.HashPassword(req.GetPassword())
 	if err != nil {
 		log.Errorf(ctx, "Failed to hash password for user creation: %v", err)
+		span.RecordError(err)
 		return nil, status.Errorf(codes.Internal, "failed to hash password: %s", err)
 	}
 
@@ -40,8 +58,13 @@ func (s *UserServiceServer) CreateUser(ctx context.Context, req *userpb.CreateUs
 	user, err := s.UserRepo.CreateUser(ctx, userParam)
 	if err != nil {
 		log.Errorf(ctx, "Failed to create user: %v", err)
+		span.RecordError(err)
 		return nil, status.Errorf(codes.Internal, "failed to create user: %v", err)
 	}
+
+	createUserCounter, _ := meter.Int64Counter("createUser")
+	createUserCounter.Add(ctx, 1)
+
 	log.Infof(ctx, "User created successfully: ID=%d, Email=%s, Role=%s", user.ID, utils.MaskEmail(user.Email), user.Role)
 
 	return ConvertToUserResponse(*user), nil
@@ -49,16 +72,30 @@ func (s *UserServiceServer) CreateUser(ctx context.Context, req *userpb.CreateUs
 
 func (s *UserServiceServer) CreateAdmin(ctx context.Context, req *userpb.CreateUserRequest) (*userpb.UserResponse, error) {
 	log := logger.FromContext(ctx)
+	meter := metrics.FromContext(ctx)
+
+	tracer := otel.Tracer("grpc-server")
+	ctx, span := tracer.Start(ctx, "UserService/CreateUser")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("service.method.name", "CreateUser"),
+		attribute.String("user.email", req.GetEmail()),
+		attribute.String("user.role", req.GetRole().String()),
+	)
+	ctx = trace.ContextWithSpan(ctx, span)
 
 	authPayload, err := s.authorizeUser(ctx, []string{domain.AdminRole})
 	if err != nil {
 		log.Errorf(ctx, "Authorization failed for CreateAdmin request: %v", err)
+		span.RecordError(err)
 		return nil, unauthenticatedError(err)
 	}
 
 	violations := validateCreateUserRequest(req)
 	if violations != nil {
 		log.Error(ctx, "Validation failed for CreateAdmin request", "violations", violations)
+		span.SetAttributes(domain.ConvertFieldViolationsToAttributes(violations)...)
 		return nil, invalidArgumentError(violations)
 	}
 
@@ -78,9 +115,12 @@ func (s *UserServiceServer) CreateAdmin(ctx context.Context, req *userpb.CreateU
 	user, err := s.UserRepo.CreateUser(ctx, userParam)
 	if err != nil {
 		log.Errorf(ctx, "Failed to create admin user: %v", err)
+		span.RecordError(err)
 		return nil, status.Errorf(codes.Internal, "failed to create admin user: %v", err)
 	}
-
+	// Increment the createUser counter
+	createUserCounter, _ := meter.Int64Counter("createUser")
+	createUserCounter.Add(ctx, 1)
 	log.Infof(ctx, "Admin user created successfully: ID=%d, Email=%s, Role=%s", user.ID, utils.MaskEmail(user.Email), user.Role)
 
 	return ConvertToUserResponse(*user), nil

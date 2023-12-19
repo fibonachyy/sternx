@@ -1,0 +1,24 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+
+exporters:
+  otlp:
+    endpoint: "0.0.0.0:55680"
+
+  prometheus:
+    namespace: "your_namespace"  # Replace with your desired namespace
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlp]
+    metrics:
+      receivers: [otlp]
+      exporters: [otlp, prometheus]  # Add Prometheus as an exporter for metrics
+    logs:
+      receivers: [otlp]
+      exporters: [otlp]
+

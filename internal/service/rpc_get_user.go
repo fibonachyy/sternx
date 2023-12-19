@@ -26,6 +26,7 @@ func (s *UserServiceServer) GetUser(ctx context.Context, req *userpb.GetUserRequ
 	violations := validateGetUserRequest(req)
 	if violations != nil {
 		log.Error(ctx, "Validation failed for GetUser request", "violations", violations)
+
 		return nil, invalidArgumentError(violations)
 	}
 
@@ -37,7 +38,6 @@ func (s *UserServiceServer) GetUser(ctx context.Context, req *userpb.GetUserRequ
 		return nil, status.Errorf(codes.Internal, "failed to find user")
 	}
 
-	// Log user retrieval without sensitive details
 	log.Infof(ctx, "User retrieved successfully: ID=%d, Email=%s, Role=%s", userData.ID, utils.MaskEmail(userData.Email), userData.Role)
 
 	return ConvertToUserResponse(*userData), nil

@@ -24,7 +24,10 @@ generate-proto:
         --openapiv2_out=doc/swagger --openapiv2_opt=allow_merge=true,merge_file_name=user_service \
         proto/*.proto
 
-# Default target, installs submodules and generates certificates and code
+.PHONY: start
+start:
+	go run main.go server --config ./config.yaml
+	
 .PHONY: all
 all: generate-certs generate-proto
 

@@ -10,6 +10,8 @@ import (
 
 	"github.com/fibonachyy/sternx/internal/domain"
 	"github.com/fibonachyy/sternx/internal/logger"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -44,6 +46,16 @@ type CreateUserParams struct {
 
 func (p *postgres) CreateUser(ctx context.Context, params CreateUserParams) (*domain.User, error) {
 	logFromCtx := logger.FromContext(ctx)
+
+	tracer := otel.Tracer("repository")
+	ctx, span := tracer.Start(ctx, "CreateUser")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("repository.method.name", "CreateUser"),
+		attribute.String("user.email", params.Email),
+	)
+
 	createdAt := time.Now()
 	passwordChangedAt := time.Now()
 
@@ -52,6 +64,7 @@ func (p *postgres) CreateUser(ctx context.Context, params CreateUserParams) (*do
 	err := p.conn.QueryRow(ctx, insertQuery, params.Name, params.Email, params.Role, params.HashedPassword, passwordChangedAt, createdAt).Scan(&userID)
 	if err != nil {
 		logFromCtx.Errorf(ctx, "failed to insert user into database: %v", err)
+		span.RecordError(err)
 		return nil, fmt.Errorf("failed to insert user into database: %w", err)
 	}
 
@@ -72,6 +85,16 @@ func (p *postgres) CreateUser(ctx context.Context, params CreateUserParams) (*do
 
 func (p *postgres) GetUserByEmail(ctx context.Context, userEmail string) (*domain.User, error) {
 	logFromCtx := logger.FromContext(ctx)
+
+	tracer := otel.Tracer("repository")
+	ctx, span := tracer.Start(ctx, "GetUserByEmail")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("repository.method.name", "GetUserByEmail"),
+		attribute.String("user.email", userEmail),
+	)
+
 	query := "SELECT id, name, email, role, hashed_password, password_changed_at, created_at FROM users WHERE email = $1"
 	var user userModel
 
@@ -81,9 +104,13 @@ func (p *postgres) GetUserByEmail(ctx context.Context, userEmail string) (*domai
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			logFromCtx.Errorf(ctx, "user not found with the provided email: %v", err)
+			span.RecordError(err)
+
 			return nil, fmt.Errorf("user not found with the provided email: %w", err)
 		}
 		logFromCtx.Errorf(ctx, "failed to find user by email: %v", err)
+		span.RecordError(err)
+
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
 	return user.ToDomain(), nil
@@ -91,6 +118,16 @@ func (p *postgres) GetUserByEmail(ctx context.Context, userEmail string) (*domai
 
 func (p *postgres) GetUserByID(ctx context.Context, userID int) (*domain.User, error) {
 	logFromCtx := logger.FromContext(ctx)
+
+	tracer := otel.Tracer("repository")
+	ctx, span := tracer.Start(ctx, "GetUserByID")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("repository.method.name", "GetUserByID"),
+		attribute.Int("user.id", userID),
+	)
+
 	query := "SELECT id, name, email, role, hashed_password, password_changed_at, created_at FROM users WHERE id = $1"
 	var user userModel
 
@@ -100,9 +137,13 @@ func (p *postgres) GetUserByID(ctx context.Context, userID int) (*domain.User, e
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			logFromCtx.Errorf(ctx, "user not found with the provided ID: %v", err)
+			span.RecordError(err)
+
 			return nil, fmt.Errorf("user not found with the provided ID: %w", err)
 		}
 		logFromCtx.Errorf(ctx, "failed to find user by id: %v", err)
+		span.RecordError(err)
+
 		return nil, fmt.Errorf("user not found: %w", err)
 	}
 	return user.ToDomain(), nil
@@ -110,6 +151,16 @@ func (p *postgres) GetUserByID(ctx context.Context, userID int) (*domain.User, e
 
 func (p *postgres) PartialUpdateUserByEmail(ctx context.Context, email string, updatedUser domain.User) (*domain.User, error) {
 	logFromCtx := logger.FromContext(ctx)
+
+	tracer := otel.Tracer("repository")
+	ctx, span := tracer.Start(ctx, "PartialUpdateUserByEmail")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("repository.method.name", "PartialUpdateUserByEmail"),
+		attribute.String("user.email", email),
+	)
+
 	updatedUser.Email = ""
 	updatedUser.Role = ""
 	updatedUser.PasswordChangedAt = time.Time{}
@@ -124,6 +175,7 @@ func (p *postgres) PartialUpdateUserByEmail(ctx context.Context, email string, u
 	err := p.conn.QueryRow(ctx, query, updatedUser.Name, email).Scan(&newUserID, &newPasswordChangedAt, &newCreatedAt, &newHashedPassword, &userEmail, &role)
 	if err != nil {
 		logFromCtx.Errorf(ctx, "failed to update user info by email: %s: %v", email, err)
+		span.RecordError(err)
 		return nil, fmt.Errorf("failed to partially update user by Email %s: %w", email, err)
 	}
 
@@ -137,25 +189,51 @@ func (p *postgres) PartialUpdateUserByEmail(ctx context.Context, email string, u
 func (p *postgres) DeleteUserByEmail(ctx context.Context, email string) error {
 
 	logFromCtx := logger.FromContext(ctx)
+
+	tracer := otel.Tracer("repository")
+	ctx, span := tracer.Start(ctx, "DeleteUserByEmail")
+	defer span.End()
+
+	// Add attributes specific to the repository method
+	span.SetAttributes(
+		attribute.String("repository.method.name", "DeleteUserByEmail"),
+		attribute.String("user.email", email),
+	)
+
 	query := "DELETE FROM users WHERE email = $1"
 
 	result, err := p.conn.Exec(ctx, query, email)
 	if err != nil {
 		logFromCtx.Errorf(ctx, "failed to delete user by email: %s: %v", email, err)
+		span.RecordError(err)
+
 		return fmt.Errorf("failed to delete user by Email %s: %w", email, err)
 	}
 
 	rowsAffected := result.RowsAffected()
 	if rowsAffected == 0 {
 		logFromCtx.Errorf(ctx, "user with Email %s not found: %v", email, sql.ErrNoRows)
+		span.SetAttributes(attribute.Bool("user.deleted", false))
+
 		return fmt.Errorf("user with Email %s not found: %w", email, sql.ErrNoRows)
 	}
+	span.SetAttributes(attribute.Bool("user.deleted", true))
 
 	return nil
 }
 
 func (p *postgres) AuthenticateUser(ctx context.Context, email, password string) (*domain.User, error) {
 	logFromCtx := logger.FromContext(ctx)
+
+	tracer := otel.Tracer("repository")
+	ctx, span := tracer.Start(ctx, "AuthenticateUser")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("repository.method.name", "AuthenticateUser"),
+		attribute.String("user.email", email),
+	)
+
 	query := "SELECT id, name, email, role, hashed_password, password_changed_at, created_at FROM users WHERE email = $1"
 	var user userModel
 
@@ -174,6 +252,11 @@ func (p *postgres) AuthenticateUser(ctx context.Context, email, password string)
 		logFromCtx.Errorf(ctx, "authentication failed: %v", err)
 		return nil, fmt.Errorf("authentication failed: %w", err)
 	}
+	span.SetAttributes(
+		attribute.Bool("user.authenticated", true),
+		attribute.Int("user.id", user.id),
+		attribute.String("user.role", user.role),
+	)
 
 	logFromCtx.Infof(ctx, "user authenticated successfully: ID=%d, Email=%s, Role=%s", user.id, user.email, user.role)
 
